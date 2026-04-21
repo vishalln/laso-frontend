@@ -1,121 +1,105 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { UserProvider, useUser } from "@/contexts/UserContext";
+import { AppProvider } from "@/contexts/AppContext";
+import { MockDataProvider } from "@/contexts/MockDataContext";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Quiz from "@/pages/Quiz";
+import Consult from "@/pages/Consult";
+import ConsultHub from "@/pages/ConsultHub";
+import Orders from "@/pages/Orders";
+import Dashboard from "@/pages/Dashboard";
+import Journey from "@/pages/Journey";
+import Support from "@/pages/Support";
+import DoctorPortal from "@/pages/DoctorPortal";
+import CoordinatorPortal from "@/pages/CoordinatorPortal";
+import AdminPortal from "@/pages/AdminPortal";
+import { ROLE_HOME } from "@/lib/roles";
+import type { UserRole } from "@/contexts/UserContext";
+import type { ReactNode } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+// ─── Route Guards ─────────────────────────────────────────────────────────────
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function RequireRole({ roles, children }: { readonly roles: UserRole[]; readonly children: ReactNode }) {
+  const { isLoggedIn, isRole } = useUser();
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
+  if (!isRole(...roles)) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
-export default App
+function RoleRedirect() {
+  const { user, isLoggedIn } = useUser();
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
+  const home = ROLE_HOME[user!.role as keyof typeof ROLE_HOME] ?? "/dashboard";
+  return <Navigate to={home} replace />;
+}
+
+// ─── Layout Wrapper ───────────────────────────────────────────────────────────
+
+function AppLayout({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <Navbar />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  );
+}
+
+// ─── Inner App (needs UserContext) ────────────────────────────────────────────
+
+function AppRoutes() {
+  return (
+    <AppLayout>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/quiz" element={<Quiz />} />
+
+        {/* Role redirect after login */}
+        <Route path="/home" element={<RoleRedirect />} />
+
+        {/* Patient routes */}
+        <Route path="/dashboard" element={<RequireRole roles={["patient"]}><Dashboard /></RequireRole>} />
+        <Route path="/journey"   element={<RequireRole roles={["patient"]}><Journey /></RequireRole>} />
+        <Route path="/consult"   element={<RequireRole roles={["patient"]}><Consult /></RequireRole>} />
+        <Route path="/orders"    element={<RequireRole roles={["patient"]}><Orders /></RequireRole>} />
+        <Route path="/support"   element={<RequireRole roles={["patient"]}><Support /></RequireRole>} />
+
+        {/* Doctor routes */}
+        <Route path="/doctor" element={<RequireRole roles={["doctor"]}><DoctorPortal /></RequireRole>} />
+
+        {/* Shared consult hub — doctor + coordinator */}
+        <Route path="/doctor-consult" element={<RequireRole roles={["doctor", "coordinator"]}><ConsultHub /></RequireRole>} />
+
+        {/* Coordinator routes */}
+        <Route path="/coordinator" element={<RequireRole roles={["coordinator"]}><CoordinatorPortal /></RequireRole>} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<RequireRole roles={["admin"]}><AdminPortal /></RequireRole>} />
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AppLayout>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <UserProvider>
+        <MockDataProvider>
+          <AppProvider>
+            <AppRoutes />
+          </AppProvider>
+        </MockDataProvider>
+      </UserProvider>
+    </BrowserRouter>
+  );
+}

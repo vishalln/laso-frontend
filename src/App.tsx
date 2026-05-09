@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import AuthCallback from "@/pages/AuthCallback";
 import Quiz from "@/pages/Quiz";
 import Consult from "@/pages/Consult";
 import ConsultHub from "@/pages/ConsultHub";
@@ -17,20 +18,23 @@ import DoctorPortal from "@/pages/DoctorPortal";
 import CoordinatorPortal from "@/pages/CoordinatorPortal";
 import AdminPortal from "@/pages/AdminPortal";
 import { ROLE_HOME } from "@/lib/roles";
+import { Loader2 } from "lucide-react";
 import type { UserRole } from "@/contexts/UserContext";
 import type { ReactNode } from "react";
 
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 
 function RequireRole({ roles, children }: { readonly roles: UserRole[]; readonly children: ReactNode }) {
-  const { isLoggedIn, isRole } = useUser();
+  const { isLoggedIn, isRole, isLoading } = useUser();
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   if (!isRole(...roles)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
 function RoleRedirect() {
-  const { user, isLoggedIn } = useUser();
+  const { user, isLoggedIn, isLoading } = useUser();
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   const home = ROLE_HOME[user!.role as keyof typeof ROLE_HOME] ?? "/dashboard";
   return <Navigate to={home} replace />;
@@ -57,6 +61,7 @@ function AppRoutes() {
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/quiz" element={<Quiz />} />
 
         {/* Role redirect after login */}

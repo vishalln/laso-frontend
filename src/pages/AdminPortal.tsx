@@ -1,19 +1,9 @@
- /* Admin Portal — LASO_SPEC_V2 Part 17 + Part 30
- *
- * Data source: useMockData().forAdmin()
- * Zero local mock data — all entities from the unified mockDB via MockDataContext.
- *
- * Tabs:
- *   Overview        — KPI tiles + status/staff breakdown
- *   Analytics       — 6 Recharts charts
- *   Doctors         — Full CRUD: add · edit · delete · toggle status · working-hours grid
- *   Users           — User table with role-chip and status toggle
- *   Protocol Builder— Step-sequence editor
- *   Catalog Manager — CatalogItem CRUD sourced from mockDB CATALOG_ITEMS
- *   System          — Feature-flag toggles
- */
-
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
+import { getPortalMetadata } from "@/constants/portals";
+import { ROLE_BADGE_CLASSES, USER_STATUS_CLASSES } from "@/constants/ui";
+import { adminService } from "@/services/adminService";
 import {
   Users, Settings, ChevronUp, ChevronDown, Trash2, Plus,
   BarChart3, Package, Layers, ToggleLeft, ToggleRight,
@@ -133,18 +123,6 @@ const DEFAULT_FLAGS: FeatureFlag[] = [
 
 const STEP_TYPES: StepType[] = ["medication", "device", "check_in", "test", "consultation", "supplement", "lifestyle"];
 
-const ROLE_CLS: Record<UserRole, string> = {
-  admin:       "bg-destructive/10 text-destructive border-destructive/20",
-  doctor:      "bg-primary/10 text-primary border-primary/20",
-  coordinator: "bg-violet-100 text-violet-700 border-violet-200",
-  patient:     "bg-muted text-muted-foreground",
-};
-
-const STATUS_CLS: Record<UserStatus, string> = {
-  active:    "bg-success/10 text-success border-success/20",
-  inactive:  "bg-muted text-muted-foreground",
-  suspended: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 const PIE_COLORS = ["#0D9488", "#F59E0B", "#E11D48", "#8B5CF6", "#059669", "#94A3B8"];
 const CHART_MARGIN = { top: 4, right: 12, left: -16, bottom: 0 };
@@ -235,7 +213,7 @@ function OverviewTab({ analytics, patients }: { analytics: AdminView["analytics"
                 <div key={role} className="flex items-center justify-between py-1.5">
                   <span className="text-sm capitalize">{role}s</span>
                   <div className="flex items-center gap-2">
-                    <Badge className={cn("text-xs", ROLE_CLS[role])}>{role}</Badge>
+                    <Badge className={cn("text-xs", ROLE_BADGE_CLASSES[role])}>{role}</Badge>
                     <span className="text-sm font-semibold">{count}</span>
                   </div>
                 </div>
@@ -577,8 +555,21 @@ function DoctorsTab() {
 
 function UsersTab() {
   const [users, setUsers] = useState(ADMIN_USERS);
-  const toggle = (id: string) =>
+  const [editingRoleUserId, setEditingRoleUserId] = useState<string | null>(null);
+
+  const handleRoleChange = async (userEmail: string, newRole: UserRole) => {
+    try {
+      await adminService.updateUserRole(userEmail, newRole);
+      setUsers(prev => prev.map(u => u.email === userEmail ? { ...u, role: newRole } : u));
+      setEditingRoleUserId(null);
+    } catch (error) {
+      console.error("Failed to update role:", error);
+    }
+  };
+
+  const toggleStatus = (id: string) => {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "active" ? "inactive" : "active" } : u));
+  };
 
   return (
     <Card>
@@ -590,7 +581,7 @@ function UsersTab() {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Login</TableHead>
-              <TableHead className="w-24">Action</TableHead>
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -600,11 +591,57 @@ function UsersTab() {
                   <p className="font-medium text-sm">{u.name}</p>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                 </TableCell>
-                <TableCell><Badge className={cn("text-xs capitalize", ROLE_CLS[u.role])}>{u.role}</Badge></TableCell>
-                <TableCell><Badge className={cn("text-xs capitalize", STATUS_CLS[u.status])}>{u.status}</Badge></TableCell>
+                <TableCell>
+                  {editingRoleUserId === u.id ? (
+                    <div className="flex items-center gap-2">
+                      <Select 
+                        value={u.role} 
+                        onValueChange={(newRole: UserRole) => handleRoleChange(u.email, newRole)}
+                      >
+                        <SelectTrigger className="w-32 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="patient">Patient</SelectItem>
+                          <SelectItem value="coordinator">Coordinator</SelectItem>
+                          <SelectItem value="doctor">Doctor</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 text-xs" 
+                        onClick={() => setEditingRoleUserId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn("text-xs capitalize", ROLE_BADGE_CLASSES[u.role])}>
+                        {u.role}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-xs"
+                        onClick={() => setEditingRoleUserId(u.id)}
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell><Badge className={cn("text-xs capitalize", USER_STATUS_CLASSES[u.status])}>{u.status}</Badge></TableCell>
                 <TableCell className="text-sm text-muted-foreground">{u.lastLogin}</TableCell>
                 <TableCell>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => toggle(u.id)}>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-7 text-xs" 
+                    onClick={() => toggleStatus(u.id)}
+                  >
                     {u.status === "active" ? "Deactivate" : "Activate"}
                   </Button>
                 </TableCell>
@@ -959,14 +996,20 @@ function SystemTab() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminPortal() {
+  const { user } = useUser();
+  if (!user || user.role !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
+
   const { forAdmin } = useMockData();
   const { allPatients, analytics, catalog } = forAdmin();
 
   const flagCount = DEFAULT_FLAGS.filter(f => f.enabled).length;
+  const { title, subtitle } = getPortalMetadata("admin");
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <PageHeader title="Admin Portal" subtitle="Programme configuration, user management, analytics, and clinical operations" />
+      <PageHeader title={title} subtitle={subtitle} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total Patients"  value={analytics.totalPatients}         icon={<Users className="h-5 w-5" />} />

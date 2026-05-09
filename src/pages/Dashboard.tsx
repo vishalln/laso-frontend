@@ -1,8 +1,3 @@
-/**
- * Dashboard — patient home screen
- * Data: useMockData().forPatient("patient_001")
- */
-
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Bell, MessageCircle, Zap, Pill, ClipboardList, TrendingDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
 import { useMockData } from "@/contexts/MockDataContext";
 import { PrescriptionBanner } from "@/components/shared/PrescriptionBanner";
+import { getTimeBasedGreeting } from "@/constants/messages";
 
 // ─── Onboarding (no active journey) ─────────────────────────────────────────
 
@@ -23,7 +19,7 @@ function OnboardingPrompt({ firstName }: { firstName: string }) {
         <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
           <TrendingDown className="h-8 w-8 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">Welcome to Laso, {firstName} 👋</h1>
+        <h1 className="text-2xl font-bold mb-2">{getTimeBasedGreeting(firstName)}</h1>
         <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
           You don't have an active treatment programme yet. Take the eligibility quiz to get started — it takes under 3 minutes.
         </p>
@@ -73,6 +69,7 @@ function OnboardingPrompt({ firstName }: { firstName: string }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useUser();
+
   const { forPatient } = useMockData();
 
   const firstName = user?.name.split(" ")[0] ?? "there";
@@ -100,7 +97,7 @@ export default function Dashboard() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Greeting */}
       <div className="mb-7">
-        <h1 className="text-2xl font-bold">Good morning, {firstName} 👋</h1>
+        <h1 className="text-2xl font-bold">{getTimeBasedGreeting(firstName)}</h1>
         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
           <ClipboardList className="h-4 w-4 text-primary" />
           Week {programme.currentWeek} · {programme.name}

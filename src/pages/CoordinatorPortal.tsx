@@ -1,13 +1,7 @@
-/**
- * Coordinator Portal — LASO_SPEC_V2 Part 19
- *
- * Data source: useMockData().forCoordinator()
- * Zero local mock data — all entities from the unified mockDB via MockDataContext.
- *
- * Panels: Triage (3-tier) · Tasks · Patients · Orders · Messaging · Consults
- */
-
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
+import { getPortalMetadata } from "@/constants/portals";
 import {
   Users, MessageCircle, Package, Calendar, CheckCircle2,
   Search, AlertTriangle, Clock, Send, ChevronDown, ChevronUp,
@@ -364,6 +358,11 @@ function ConsultsPanel({ patients }: { patients: Patient[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CoordinatorPortal() {
+  const { user } = useUser();
+  if (!user || user.role !== "coordinator") {
+    return <Navigate to="/login" replace />;
+  }
+
   const { forCoordinator, updateTask } = useMockData();
   const view = forCoordinator();
 
@@ -379,10 +378,12 @@ export default function CoordinatorPortal() {
   const imm     = allPatients.filter(p => triageTier(p) === "immediate").length;
   const mon     = allPatients.filter(p => triageTier(p) === "monitor").length;
 
+  const { title } = getPortalMetadata("coordinator");
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <PageHeader
-        title="Care Coordinator Portal"
+        title={title}
         subtitle={`${pending} tasks pending · ${urgent} urgent · ${imm} immediate · ${mon} monitoring`}
       />
 

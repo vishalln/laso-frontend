@@ -1,15 +1,6 @@
-/**
- * Doctor Portal — LASO_SPEC_V2 Part 18
- *
- * Data source: useMockData().forDoctor(doctorId) + forPatient(patientId)
- * Zero local mock data — all entities from the unified mockDB via MockDataContext.
- *
- * Tabs per selected patient:
- *   Overview · Journey & Steps · Progress Charts · Treatment Plan
- *   Messages · Notes · Clinical Interactions · Actions
- */
-
 import { useState, useMemo } from "react";
+import { Navigate } from "react-router-dom";
+import { getPortalMetadata } from "@/constants/portals";
 import {
   Users, AlertTriangle, Search, Clock, XCircle, TrendingDown,
   Activity, CheckCircle2, ChevronRight, FileText, MessageCircle,
@@ -718,6 +709,10 @@ function PatientRow({ p, onSelect }: { p: Patient; onSelect: () => void }) {
 
 export default function DoctorPortal() {
   const { user } = useUser();
+  if (!user || user.role !== "doctor") {
+    return <Navigate to="/login" replace />;
+  }
+
   const { forDoctor } = useMockData();
 
   const doctorId = user?.doctorId ?? "doctor_001";
@@ -747,10 +742,12 @@ export default function DoctorPortal() {
     </div>
   );
 
+  const { title } = getPortalMetadata("doctor");
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <PageHeader
-        title={`${doctor.name}'s Portal`}
+        title={title}
         subtitle={`${doctor.specialisation.join(" · ")} · ${patients.length} patients under care`}
       />
 

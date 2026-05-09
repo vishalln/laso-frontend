@@ -2,6 +2,8 @@
 // All role/route/nav knowledge lives here. Import from this file everywhere.
 // Never duplicate role checks or nav arrays in components.
 
+import type { NavigateFunction } from "react-router-dom";
+
 export type Role = "patient" | "doctor" | "coordinator" | "admin";
 
 // Post-login redirect per role
@@ -46,3 +48,20 @@ export const NAV_LINKS: Record<Role, { href: string; label: string }[]> = {
     { href: "/admin",          label: "Admin Portal" },
   ],
 };
+
+// ─── Post-Login Navigation Utility ───────────────────────────────────────────
+// Generic utility for role-based redirects after authentication
+
+export function navigateToRoleHome(
+  role: Role | undefined,
+  navigate: NavigateFunction,
+  redirectTo?: string
+): void {
+  if (redirectTo) {
+    navigate(redirectTo, { replace: true });
+    return;
+  }
+  
+  const homePath = role ? ROLE_HOME[role] : ROLE_HOME.patient;
+  navigate(homePath, { replace: true });
+}

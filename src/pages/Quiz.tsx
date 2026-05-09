@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { quizSteps, type QuizAnswers } from "@/data/quizData";
 import { calculateBmi } from "@/lib/bmiCalculator";
+import { apiClient } from "@/lib/apiClient";
 
 // ─── Result screen ────────────────────────────────────────────────────────────
 function QuizResult({ answers }: { answers: QuizAnswers }) {
@@ -18,6 +19,13 @@ function QuizResult({ answers }: { answers: QuizAnswers }) {
     : null;
   const hasComorbidity = (answers.conditions ?? []).some((c) => c !== "none");
   const eligible = bmiResult !== null && (bmiResult.bmi >= 30 || (bmiResult.bmi >= 27 && hasComorbidity));
+
+  // Fire-and-forget — persist submission; non-blocking to UX
+  useEffect(() => {
+    apiClient.post<{ quiz_id: string; bmi: number; eligible: boolean }>("/quiz/submit", answers)
+      .then((data) => { if (data.quiz_id) localStorage.setItem("laso_quiz_id", data.quiz_id); })
+      .catch((err) => console.error("[Quiz] submission failed", err));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="text-center max-w-lg mx-auto py-8">

@@ -23,7 +23,8 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const nav = NAV_LINKS[(user?.role as Role) ?? "patient"];
+  // Defensive: ensure nav is always an array, even if role is invalid
+  const nav = isLoggedIn ? (NAV_LINKS[user?.role as Role] ?? NAV_LINKS.patient) : [];
 
   const handleLogout = () => {
     logout();

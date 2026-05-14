@@ -16,23 +16,24 @@ export const ROLE_HOME: Record<Role, string> = {
 
 // Allowed roles per route (used by RoleGuard / RequireRole in App.tsx)
 export const ROUTE_ROLES: Record<string, Role[]> = {
-  "/dashboard":      ["patient"],
-  "/journey":        ["patient"],
-  "/consult":        ["patient"],
-  "/orders":         ["patient"],
-  "/support":        ["patient"],
-  "/doctor":         ["doctor"],
-  "/doctor-consult": ["doctor", "coordinator"],  // shared consult hub
-  "/coordinator":    ["coordinator"],
-  "/admin":          ["admin"],
+  "/dashboard":          ["patient"],
+  "/programme":          ["patient"],
+  "/programme/start":    ["patient"],
+  "/programme/check-in": ["patient"],
+  "/programme/history":  ["patient"],
+  "/orders":             ["patient"],
+  "/support":            ["patient"],
+  "/doctor":             ["doctor"],
+  "/doctor-consult":     ["doctor", "coordinator"],  // shared consult hub
+  "/coordinator":        ["coordinator"],
+  "/admin":              ["admin"],
 };
 
 // Nav links rendered per role in Navbar
 export const NAV_LINKS: Record<Role, { href: string; label: string }[]> = {
   patient: [
     { href: "/dashboard",      label: "Dashboard" },
-    { href: "/journey",        label: "My Journey" },
-    { href: "/consult",        label: "Consult" },
+    { href: "/programme",      label: "Programme" },
     { href: "/orders",         label: "Orders" },
     { href: "/support",        label: "Support" },
   ],

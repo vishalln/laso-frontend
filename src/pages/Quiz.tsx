@@ -1,31 +1,99 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { quizSteps, type QuizAnswers } from "@/data/quizData";
 import { calculateBmi } from "@/lib/bmiCalculator";
-import { apiClient } from "@/lib/apiClient";
+import { useUser } from "@/contexts/UserContext";
+import { quizService, type QuizSubmissionResult } from "@/services/quizService";
+import { ScoreRing } from "@/components/shared/ScoreRing";
+import { formatDate } from "@/constants/dates";
+import { QUIZ_MESSAGES } from "@/constants/messages";
 
-// ─── Result screen ────────────────────────────────────────────────────────────
-function QuizResult({ answers }: { answers: QuizAnswers }) {
+// ─── Prior Result Display ─────────────────────────────────────────────────────
+function PriorQuizResult({
+  result,
+  onRetake,
+}: {
+  readonly result: QuizSubmissionResult;
+  readonly onRetake: () => void;
+}) {
   const navigate = useNavigate();
+
+  return (
+    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-primary/5 to-white flex items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle>{QUIZ_MESSAGES.RESULT_TITLE}</CardTitle>
+          <Badge variant={result.eligible ? "default" : "secondary"} className="mx-auto mt-2">
+            {result.eligible ? QUIZ_MESSAGES.ELIGIBLE_LABEL : QUIZ_MESSAGES.NOT_ELIGIBLE_LABEL}
+          </Badge>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4">
+          {result.bmi && (
+            <ScoreRing score={Math.round(result.bmi * 10) / 10} max={50} label="BMI" />
+          )}
+          <p className="text-sm text-muted-foreground text-center leading-relaxed">
+            {result.eligible ? QUIZ_MESSAGES.ELIGIBLE_DESCRIPTION : QUIZ_MESSAGES.NOT_ELIGIBLE_DESCRIPTION}
+          </p>
+          {result.created_at && (
+            <p className="text-xs text-muted-foreground">
+              {QUIZ_MESSAGES.SUBMITTED_PREFIX}: {formatDate(result.created_at)}
+            </p>
+          )}
+        </CardContent>
+        <CardFooter className="flex flex-col gap-3">
+          {result.eligible && (
+            <Button className="w-full gap-2" onClick={() => navigate("/programme/start")}>
+              {QUIZ_MESSAGES.START_PROGRAMME_CTA} <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="outline" className="w-full gap-2" onClick={onRetake}>
+            <RefreshCw className="h-4 w-4" /> {QUIZ_MESSAGES.RETAKE_BUTTON}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Post-Submission Result ───────────────────────────────────────────────────
+function QuizResult({ answers }: { readonly answers: QuizAnswers }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { isLoggedIn } = useUser();
+  const [quizId, setQuizId] = useState<string | null>(null);
   const bmiResult = answers.heightCm && answers.weightKg
     ? calculateBmi(answers.weightKg, answers.heightCm)
     : null;
   const hasComorbidity = (answers.conditions ?? []).some((c) => c !== "none");
   const eligible = bmiResult !== null && (bmiResult.bmi >= 30 || (bmiResult.bmi >= 27 && hasComorbidity));
 
-  // Fire-and-forget — persist submission; non-blocking to UX
   useEffect(() => {
-    apiClient.post<{ quiz_id: string; bmi: number; eligible: boolean }>("/quiz/submit", answers)
-      .then((data) => { if (data.quiz_id) localStorage.setItem("laso_quiz_id", data.quiz_id); })
-      .catch((err) => console.error("[Quiz] submission failed", err));
+    if (isLoggedIn) {
+      quizService.submit(answers as Record<string, unknown>)
+        .then(() => queryClient.invalidateQueries({ queryKey: ["quiz", "latest"] }))
+        .catch((err) => console.error("[Quiz] submission failed", err));
+    } else {
+      quizService.submitAnonymous(answers as Record<string, unknown>)
+        .then((data) => {
+          localStorage.setItem(QUIZ_MESSAGES.ANONYMOUS_QUIZ_KEY, data.quiz_id);
+          setQuizId(data.quiz_id);
+        })
+        .catch((err) => console.error("[Quiz] anonymous submission failed", err));
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loginUrl = quizId ? `/login?quiz_id=${quizId}` : "/login";
 
   return (
     <div className="text-center max-w-lg mx-auto py-8">
@@ -42,16 +110,24 @@ function QuizResult({ answers }: { answers: QuizAnswers }) {
       )}
       <p className="text-muted-foreground mb-8 leading-relaxed">
         {eligible
-          ? "Based on your responses, you meet the clinical criteria for GLP-1 therapy. Book a consultation with a specialist doctor within 48 hours."
+          ? QUIZ_MESSAGES.ELIGIBLE_DESCRIPTION
           : "A doctor will review your questionnaire and advise on the best approach for your health goals. Book a consultation to proceed."}
       </p>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Button size="lg" className="gap-2" onClick={() => navigate("/consult")}>
-          Book my consultation <ArrowRight className="h-4 w-4" />
-        </Button>
-        <Button size="lg" variant="outline" onClick={() => navigate("/login")}>
-          Create account
-        </Button>
+        {isLoggedIn ? (
+          <Button size="lg" className="gap-2" onClick={() => navigate("/programme/start")}>
+            {QUIZ_MESSAGES.START_PROGRAMME_CTA} <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <>
+            <Button size="lg" className="gap-2" onClick={() => navigate(loginUrl)}>
+              {QUIZ_MESSAGES.START_PROGRAMME_CTA} <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate(loginUrl)}>
+              {QUIZ_MESSAGES.CREATE_ACCOUNT_CTA}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -68,10 +144,18 @@ export default function Quiz() {
   const [stepIdx, setStepIdx] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [done, setDone] = useState(false);
+  const [retaking, setRetaking] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, isLoggedIn } = useUser();
 
-  // Pre-select primaryGoal from ?program= URL param (Landing → Quiz deep link)
+  const { data: priorResult, isLoading: priorLoading } = useQuery({
+    queryKey: ["quiz", "latest", user?.id],
+    queryFn: () => quizService.getMyLatest(),
+    enabled: isLoggedIn && !retaking,
+    retry: false,
+  });
+
   useEffect(() => {
     const program = searchParams.get("program");
     if (program && PROGRAM_TO_GOAL[program]) {
@@ -106,6 +190,23 @@ export default function Quiz() {
     if (stepIdx > 0) setStepIdx((i) => i - 1);
     else navigate("/");
   };
+
+  if (isLoggedIn && priorLoading && !retaking) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="w-full max-w-md space-y-4 px-4">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-32 w-32 rounded-full mx-auto" />
+          <Skeleton className="h-4 w-64 mx-auto" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoggedIn && priorResult && !retaking && !done) {
+    return <PriorQuizResult result={priorResult} onRetake={() => setRetaking(true)} />;
+  }
 
   if (done) {
     return (

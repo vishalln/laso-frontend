@@ -58,3 +58,16 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: "The requested resource was not found.",
   VALIDATION: "Please check your input and try again.",
 } as const;
+
+export const QUIZ_MESSAGES = {
+  RESULT_TITLE: "Your Eligibility Result",
+  ELIGIBLE_LABEL: "Eligible",
+  NOT_ELIGIBLE_LABEL: "Not Eligible",
+  ELIGIBLE_DESCRIPTION: "Based on your responses, you meet the clinical criteria for GLP-1 therapy. Start your programme or book a consultation with a specialist.",
+  NOT_ELIGIBLE_DESCRIPTION: "Based on your current metrics, you don't meet the criteria yet. You can retake the quiz if your health profile changes.",
+  RETAKE_BUTTON: "Retake Quiz",
+  START_PROGRAMME_CTA: "Start Your Programme",
+  SUBMITTED_PREFIX: "Submitted",
+  ANONYMOUS_QUIZ_KEY: "laso_pending_quiz_id",
+  CREATE_ACCOUNT_CTA: "Create account to continue",
+} as const;

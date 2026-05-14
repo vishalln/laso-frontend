@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 import { navigateToRoleHome } from "@/lib/roles";
 import { cognitoService } from "@/services/cognitoService";
+import { quizService } from "@/services/quizService";
+import { QUIZ_MESSAGES } from "@/constants/messages";
 
 // ─── Demo credentials — must match UserContext DEMO_USERS ────────────────────
 
 const DEMO_CREDS = [
-  { role: "Patient",     email: "patient@laso.health",      password: "Patient123!", color: "bg-primary",     initial: "P" },
-  { role: "Doctor",      email: "doctor@laso.health",       password: "Doctor123!",  color: "bg-emerald-600", initial: "D" },
-  { role: "Coordinator", email: "coordinator@laso.health",  password: "Coord123!",   color: "bg-violet-600",  initial: "C" },
-  { role: "Admin",       email: "admin@laso.health",        password: "Admin123!",   color: "bg-slate-700",   initial: "A" },
+  { role: "Arjun (Patient)",  email: "arjun.sharma@laso.health",  password: "Patient123!", color: "bg-primary",     initial: "AS", desc: "Week 8, good progress" },
+  { role: "Kavita (Patient)", email: "kavita.rao@laso.health",    password: "Patient123!", color: "bg-sky-600",     initial: "KR", desc: "Completed + maintenance" },
+  { role: "Suresh (Patient)", email: "suresh.iyer@laso.health",   password: "Patient123!", color: "bg-amber-600",   initial: "SI", desc: "Week 3, adherence issues" },
+  { role: "Dr. Rahul",        email: "dr.rahul@laso.health",      password: "Doctor123!",  color: "bg-emerald-600", initial: "DR", desc: "Arjun + Suresh" },
+  { role: "Dr. Priya",        email: "dr.priya@laso.health",      password: "Doctor123!",  color: "bg-teal-600",    initial: "DP", desc: "Kavita" },
+  { role: "Coordinator",      email: "coordinator@laso.health",   password: "Coord123!",   color: "bg-violet-600",  initial: "C",  desc: "Tasks & orders" },
+  { role: "Admin",            email: "admin@laso.health",         password: "Admin123!",   color: "bg-slate-700",   initial: "A",  desc: "Full access" },
 ] as const;
 
 export default function Login() {
@@ -27,16 +32,25 @@ export default function Login() {
   const { login, user }       = useUser();
   const navigate              = useNavigate();
   const location              = useLocation();
+  const [searchParams]        = useSearchParams();
   const redirectTo            = (location.state as { from?: string } | null)?.from;
+  const quizId                = searchParams.get("quiz_id");
   const hasNavigated          = useRef(false);
 
-  // Navigate after successful login when user context updates
   useEffect(() => {
     if (user && !hasNavigated.current) {
       hasNavigated.current = true;
+
+      const pendingQuizId = quizId || localStorage.getItem(QUIZ_MESSAGES.ANONYMOUS_QUIZ_KEY);
+      if (pendingQuizId) {
+        quizService.claim(pendingQuizId)
+          .then(() => localStorage.removeItem(QUIZ_MESSAGES.ANONYMOUS_QUIZ_KEY))
+          .catch((err) => console.warn("[Login] quiz claim failed", err));
+      }
+
       navigateToRoleHome(user.role, navigate, redirectTo);
     }
-  }, [user, navigate, redirectTo]);
+  }, [user, navigate, redirectTo, quizId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,22 +103,25 @@ export default function Login() {
           <CardContent className="space-y-5">
 
             {/* Role quick-select */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {DEMO_CREDS.map((d) => (
                 <button
-                  key={d.role}
+                  key={d.email}
                   type="button"
                   onClick={() => quickLogin(d)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all text-center
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all text-left
                     ${email === d.email
                       ? "border-primary bg-primary/5 shadow-sm"
                       : "border-border hover:border-primary/40 hover:bg-muted/30"
                     }`}
                 >
-                  <div className={`h-8 w-8 rounded-full ${d.color} text-white text-xs font-bold flex items-center justify-center`}>
+                  <div className={`h-8 w-8 shrink-0 rounded-full ${d.color} text-white text-[10px] font-bold flex items-center justify-center`}>
                     {d.initial}
                   </div>
-                  <span className="text-xs font-medium leading-tight">{d.role}</span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{d.role}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{d.desc}</div>
+                  </div>
                 </button>
               ))}
             </div>

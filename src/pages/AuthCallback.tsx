@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cognitoService } from '@/services/cognitoService';
+import { quizService } from '@/services/quizService';
 import { useUser } from '@/contexts/UserContext';
 import { ROLE_HOME, type Role } from '@/lib/roles';
+import { QUIZ_MESSAGES } from '@/constants/messages';
 import { Loader2 } from 'lucide-react';
 
 export default function AuthCallback() {
@@ -47,13 +49,24 @@ export default function AuthCallback() {
         }
 
         console.log('[AuthCallback] Token exchange successful');
-        
+
         const userData = updateUserFromSession(result.session);
         console.log('[AuthCallback] User authenticated:', userData.email, 'Role:', userData.role);
 
+        const pendingQuizId = localStorage.getItem(QUIZ_MESSAGES.ANONYMOUS_QUIZ_KEY);
+        if (pendingQuizId) {
+          try {
+            await quizService.claim(pendingQuizId);
+            localStorage.removeItem(QUIZ_MESSAGES.ANONYMOUS_QUIZ_KEY);
+            console.log('[AuthCallback] quiz claimed | quiz_id=%s', pendingQuizId);
+          } catch (claimErr) {
+            console.warn('[AuthCallback] quiz claim failed', claimErr);
+          }
+        }
+
         const redirectPath = ROLE_HOME[userData.role as Role] || ROLE_HOME.patient;
         console.log('[AuthCallback] Navigating to:', redirectPath);
-        
+
         navigate(redirectPath, { replace: true });
       } catch (err) {
         console.error('[AuthCallback] Unexpected error:', err);
